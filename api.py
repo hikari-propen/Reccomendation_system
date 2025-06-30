@@ -164,3 +164,54 @@ def get_custom_recommendations(
         'budget': user.budget,
         'category_preference': user.category_preference
     }
+    is_new_user = True  # Anggap custom user selalu new user
+
+    # Get user's preferred cluster
+    try:
+        user_cat_encoded = category_le.transform([preferences['category_preference']])[0]
+        user_city_encoded = city_le.transform([preferences['location'].split(', ')[0]])[0]
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Category or City not found in model vocabulary.")
+
+    user_features = np.array([[
+        user_cat_encoded,
+        user_city_encoded,
+        preferences['budget']
+    ]])
+    user_cluster = kmeans.predict(user_features)[0]
+
+    # Calculate scores for each place
+    scores = []
+    for _, place in tourism_data.iterrows():
+        location_score = calculate_location_score(place['City'], preferences['location'], place['Lat'], place['Long'])
+        price_score = calculate_price_score(place['Price'], preferences['budget'])
+        category_score = calculate_category_score(place['Category'], preferences['category_preference'])
+        place_description = tfidf.transform([place['combined_text']])
+        content_similarity = cosine_similarity(place_description, description_matrix).mean()
+        place_cluster = place['Cluster']
+        cluster_score = 1.0 if place_cluster == user_cluster else 0.5
+        rating_score = 0.5  # Untuk custom user, rating score bisa default
+        popularity_score = popularity.loc[popularity['Place_Id'] == place['Place_Id'], 'Popularity_Score'].values[0] if place['Place_Id'] in popularity['Place_Id'].values else 0.5
+
+        final_score = (
+            0.25 * location_score + 0.20 * price_score + 0.15 * category_score +
+            0.15 * content_similarity + 0.10 * cluster_score + 0.15 * popularity_score
+        )
+
+        scores.append({
+            'Place_Id': place['Place_Id'],
+            'Place_Name': place['Place_Name'],
+            'Category': place['Category'],
+            'City': place['City'],
+            'Price': place['Price'],
+            'Content_Score': content_similarity,
+            'Cluster_Score': cluster_score,
+            'Rating_Score': rating_score,
+            'Popularity_Score': popularity_score,
+            'Score': final_score
+        })
+
+    recommendations_df = pd.DataFrame(scores).sort_values('Score', ascending=False)
+    top_recommendations = recommendations_df.head(n_recommendations).to_dict('records')
+
+    return {"user_id": -1, "recommendations": top_recommendations}
