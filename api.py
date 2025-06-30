@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from pydantic import BaseModel
 import uvicorn
 import numpy as np
@@ -59,6 +59,12 @@ class Recommendation(BaseModel):
 class RecommendationResponse(BaseModel):
     user_id: int
     recommendations: list[Recommendation]
+
+class CustomUserRequest(BaseModel):
+    location: str
+    age: int
+    budget: int
+    category_preference: str
 
 @app.get("/")
 def read_root():
@@ -147,5 +153,14 @@ def get_recommendations_endpoint(user_id: int, n_recommendations: int = 5):
 
     return {"user_id": user_id, "recommendations": top_recommendations}
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+@app.post("/recommendations/custom", response_model=RecommendationResponse)
+def get_custom_recommendations(
+    user: CustomUserRequest = Body(...),
+    n_recommendations: int = 5
+):
+    preferences = {
+        'location': user.location,
+        'age': user.age,
+        'budget': user.budget,
+        'category_preference': user.category_preference
+    }
