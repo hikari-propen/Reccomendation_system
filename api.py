@@ -4,6 +4,8 @@ import uvicorn
 import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
+from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
 
 # Import logic from your script
 from tourism_recommendation import (
@@ -25,6 +27,15 @@ app = FastAPI(
     title="Tourism Recommendation API",
     description="API for providing tourism recommendations based on user preferences.",
     version="1.0.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Ganti dengan ["http://localhost:5173"] untuk lebih aman
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
 # --- Global objects ---
@@ -65,6 +76,8 @@ class CustomUserRequest(BaseModel):
     age: int
     budget: int
     category_preference: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 @app.get("/")
 def read_root():
@@ -162,7 +175,9 @@ def get_custom_recommendations(
         'location': user.location,
         'age': user.age,
         'budget': user.budget,
-        'category_preference': user.category_preference
+        'category_preference': user.category_preference,
+        'lat': user.lat,
+        'lng': user.lng
     }
     is_new_user = True  # Anggap custom user selalu new user
 
