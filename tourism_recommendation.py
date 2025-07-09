@@ -342,20 +342,20 @@ def get_recommendations(user_preferences, n_recommendations=5):
     
     # Convert to DataFrame and sort by score
     recommendations_df = pd.DataFrame(scores)
-    
-    # Add diversity to recommendations
-    # Group by city and take top 2 from each city
-    top_by_city = recommendations_df.sort_values('Score', ascending=False).groupby('City').head(2)
-    
-    # Get remaining recommendations
-    remaining = recommendations_df[~recommendations_df.index.isin(top_by_city.index)]
-    remaining = remaining.sort_values('Score', ascending=False).head(n_recommendations - len(top_by_city))
-    
-    # Combine and sort final recommendations
-    final_recommendations = pd.concat([top_by_city, remaining])
-    final_recommendations = final_recommendations.sort_values('Score', ascending=False)
-    
-    return final_recommendations.head(n_recommendations).to_dict('records')
+    recommendations_df = recommendations_df.sort_values('Score', ascending=False)
+
+    # (Opsional) Filter by city and category if user wants strict match
+    city = user_preferences['location'].split(',')[0].strip()
+    category = user_preferences['category_preference'].strip()
+    filtered = recommendations_df[
+        (recommendations_df['City'].str.contains(city, case=False, na=False)) &
+        (recommendations_df['Category'].str.contains(category, case=False, na=False))
+    ]
+    if not filtered.empty:
+        return filtered.head(n_recommendations).to_dict('records')
+    else:
+        # fallback: return top N overall
+        return recommendations_df.head(n_recommendations).to_dict('records')
 
 def evaluate_models():
     """Evaluate KMeans clustering"""
