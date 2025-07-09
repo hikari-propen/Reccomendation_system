@@ -273,14 +273,19 @@ def get_recommendations(user_preferences, n_recommendations=5):
     ]])
     user_cluster = kmeans.predict(user_features)[0]
     
-    # Get user's location coordinates (if available from input)
-    user_lat = user_preferences.get('lat')
-    user_lng = user_preferences.get('lng')
-    if user_lat is None or user_lng is None:
-        user_city = user_preferences['location'].split(', ')[0]
-        user_location_data = tourism_data[tourism_data['City'] == user_city]
-        user_lat = user_location_data['Lat'].iloc[0] if not user_location_data.empty else None
-        user_lng = user_location_data['Long'].iloc[0] if not user_location_data.empty else None
+    # Normalisasi nama kota user
+    user_city = user_preferences['location'].split(',')[0].strip()
+    # Ambil kata utama saja (misal: "Jakarta" dari "Jakarta Timur, DKI Jakarta")
+    main_city = user_city.split()[0] if "Jakarta" in user_city else user_city
+
+    user_location_data = tourism_data[tourism_data['City'].str.contains(main_city, case=False, na=False)]
+    if not user_location_data.empty:
+        user_lat = user_location_data['Lat'].iloc[0]
+        user_lng = user_location_data['Long'].iloc[0]
+    else:
+        user_lat = None
+        user_lng = None
+    print(f"User location: {user_city}, lat: {user_lat}, lng: {user_lng}")
     
     # Calculate scores for each place
     scores = []
