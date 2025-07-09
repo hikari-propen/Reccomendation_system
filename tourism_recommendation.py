@@ -273,11 +273,14 @@ def get_recommendations(user_preferences, n_recommendations=5):
     ]])
     user_cluster = kmeans.predict(user_features)[0]
     
-    # Get user's location coordinates (if available)
-    user_city = user_preferences['location'].split(', ')[0]
-    user_location_data = tourism_data[tourism_data['City'] == user_city]
-    user_lat = user_location_data['Lat'].iloc[0] if not user_location_data.empty else None
-    user_lng = user_location_data['Long'].iloc[0] if not user_location_data.empty else None
+    # Get user's location coordinates (if available from input)
+    user_lat = user_preferences.get('lat')
+    user_lng = user_preferences.get('lng')
+    if user_lat is None or user_lng is None:
+        user_city = user_preferences['location'].split(', ')[0]
+        user_location_data = tourism_data[tourism_data['City'] == user_city]
+        user_lat = user_location_data['Lat'].iloc[0] if not user_location_data.empty else None
+        user_lng = user_location_data['Long'].iloc[0] if not user_location_data.empty else None
     
     # Calculate scores for each place
     scores = []
