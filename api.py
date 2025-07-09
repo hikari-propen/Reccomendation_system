@@ -181,6 +181,15 @@ def get_custom_recommendations(
     }
     is_new_user = True  # Anggap custom user selalu new user
 
+    # Cari lat/lng user dari tourism_data jika tidak diberikan
+    if preferences['lat'] is None or preferences['lng'] is None:
+        user_city = preferences['location'].split(',')[0].strip()
+        main_city = user_city.split()[0] if "Jakarta" in user_city else user_city
+        user_location_data = tourism_data[tourism_data['City'].str.contains(main_city, case=False, na=False)]
+        if not user_location_data.empty:
+            preferences['lat'] = user_location_data['Lat'].iloc[0]
+            preferences['lng'] = user_location_data['Long'].iloc[0]
+
     # Get user's preferred cluster
     try:
         user_cat_encoded = category_le.transform([preferences['category_preference']])[0]
@@ -188,17 +197,22 @@ def get_custom_recommendations(
     except ValueError:
         raise HTTPException(status_code=404, detail="Category or City not found in model vocabulary.")
 
-    user_features = np.array([[
-        user_cat_encoded,
-        user_city_encoded,
-        preferences['budget']
-    ]])
+    user_features = np.array([
+        [
+            user_cat_encoded,
+            user_city_encoded,
+            preferences['budget']
+        ]
+    ])
     user_cluster = kmeans.predict(user_features)[0]
 
     # Calculate scores for each place
     scores = []
     for _, place in tourism_data.iterrows():
-        location_score = calculate_location_score(place['City'], preferences['location'], place['Lat'], place['Long'])
+        location_score = calculate_location_score(
+            place['City'], preferences['location'], place['Lat'], place['Long'],
+            preferences['lat'], preferences['lng']
+        )
         price_score = calculate_price_score(place['Price'], preferences['budget'])
         category_score = calculate_category_score(place['Category'], preferences['category_preference'])
         place_description = tfidf.transform([place['combined_text']])
